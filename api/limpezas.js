@@ -1,3 +1,7 @@
+import { Redis } from '@upstash/redis';
+
+const redis = Redis.fromEnv();
+
 const FONTES_ICAL = [
   // Website Directo
   { propriedade: 'Cristal Mar', origem: 'Website Directo', url: 'https://buarcossea.pt/wp-content/uploads/properties-icalendars/icalendar-7912.ics' },
@@ -13,6 +17,28 @@ const FONTES_ICAL = [
 ];
 
 export default async function handler(req, res) {
+  // Guardar alterações de estado (POST)
+  if (req.method === 'POST') {
+    try {
+      const { id, estado } = req.body;
+      if (!id) return res.status(400).json({ error: 'ID em falta' });
+
+      let estados = (await redis.get('estados_limpezas')) || {};
+      
+      if (estado === 'pendente') {
+        delete estados[id];
+      } else {
+        estados[id] = estado;
+      }
+
+      await redis.set('estados_limpezas', estados);
+      return res.status(200).json({ success: true, estados });
+    } catch (e) {
+      return res.status(500).json({ success: false, error: e.message });
+    }
+  }
+
+  // Carregar dados e iCals (GET)
   try {
     let limpezas = [];
 
@@ -23,13 +49,10 @@ export default async function handler(req, res) {
         const response = await fetch(fonte.url);
         const text = await response.text();
 
-        // Extrai os blocos de eventos do iCal
         const vevents = text.split('BEGIN:VEVENT');
 
         for (let i = 1; i < vevents.length; i++) {
           const block = vevents[i].split('END:VEVENT')[0];
-          
-          // Captura a data de Fim/Checkout (DTEND) e o Resumo
           const dtendMatch = block.match(/DTEND(?:;VALUE=DATE)?:?([0-9T]+)/);
           const summaryMatch = block.match(/SUMMARY:(.*)/);
 
@@ -57,7 +80,9 @@ export default async function handler(req, res) {
       }
     }
 
-    res.status(200).json({ success: true, limpezas });
+    const estados = (await redis.get('estados_limpezas')) || {};
+
+    res.status(200).json({ success: true, limpezas, estados });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
