@@ -1,0 +1,103 @@
+
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda de Limpezas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4 max-w-md mx-auto">
+    <h1 class="text-xl font-bold mb-4">Agenda de Limpezas</h1>
+
+    <!-- Formulário Manual -->
+    <div class="bg-white p-3 rounded-lg shadow mb-4">
+        <h2 class="text-sm font-semibold mb-2">Adicionar Limpeza Manual</h2>
+        <div class="flex flex-col gap-2">
+            <input type="text" id="propName" placeholder="Propriedade" class="border p-2 rounded text-sm">
+            <input type="date" id="dateInput" class="border p-2 rounded text-sm">
+            <button onclick="adicionarManual()" class="bg-blue-600 text-white py-2 rounded text-sm">Adicionar</button>
+        </div>
+    </div>
+
+    <div id="lista" class="space-y-3">
+        <p class="text-center">A carregar reservas...</p>
+    </div>
+
+    <script>
+        // Links dos teus iCals
+        const urls = [
+            'https://buarcossea.pt/wp-content/uploads/properties-icalendars/icalendar-7912.ics', // Cristal Mar
+            'https://buarcossea.pt/wp-content/uploads/properties-icalendars/icalendar-6195.ics'  // Tonay Sol
+        ];
+
+        let estados = JSON.parse(localStorage.getItem('estados') || '{}');
+        let manuais = JSON.parse(localStorage.getItem('manuais') || '[]');
+
+        function atualizarEstado(id, estado) {
+            if(estado === 'pendente') delete estados[id];
+            else estados[id] = estado;
+            localStorage.setItem('estados', JSON.stringify(estados));
+            render();
+        }
+
+        function adicionarManual() {
+            const prop = document.getElementById('propName').value;
+            const data = document.getElementById('dateInput').value;
+            if(!prop || !data) return alert('Preenche tudo');
+            manuais.push({id: 'm_' + Date.now(), propriedade: prop, data: data, origem: 'Manual'});
+            localStorage.setItem('manuais', JSON.stringify(manuais));
+            render();
+        }
+
+        async function render() {
+            const lista = document.getElementById('lista');
+            lista.innerHTML = 'A carregar...';
+            
+            // Simulação de carregamento (em app estática, o fetch direto de iCal pode dar erro de CORS)
+            // Se o fetch falhar, mostra as manuais
+            let html = manuais.map(m => criarCard(m)).join('');
+            
+            // Tenta carregar iCals (usando um proxy público para evitar bloqueios)
+            for(let url of urls) {
+                try {
+                    const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(url));
+                    const text = await res.text();
+                    // Parsing muito simples de iCal
+                    const lines = text.split('\n');
+                    let current = {};
+                    lines.forEach(line => {
+                        if(line.includes('SUMMARY:')) current.propriedade = line.split(':')[1];
+                        if(line.includes('DTSTART:')) current.data = line.split(':')[1].substring(0,8);
+                    });
+                    if(current.propriedade) html += criarCard({id: 'ical_'+current.data, ...current, origem: 'iCal'});
+                } catch(e) { console.log('Erro iCal'); }
+            }
+            lista.innerHTML = html || '<p>Sem reservas.</p>';
+        }
+
+        function criarCard(item) {
+            const est = estados[item.id] || 'pendente';
+            return `
+                <div class="bg-white p-4 rounded shadow border">
+                    <h3 class="font-bold">${item.propriedade}</h3>
+                    <p class="text-xs text-gray-500">${item.data} - ${item.origem}</p>
+                    <div class="mt-3 flex gap-2">
+                        ${est === 'pendente' ? `
+                            <button onclick="atualizarEstado('${item.id}', 'iniciada')" class="bg-blue-500 text-white px-3 py-1 rounded text-xs">Iniciar</button>
+                            <button onclick="atualizarEstado('${item.id}', 'concluida')" class="bg-green-500 text-white px-3 py-1 rounded text-xs">Concluir</button>
+                        ` : ''}
+                        ${est === 'iniciada' ? `
+                            <button onclick="atualizarEstado('${item.id}', 'concluida')" class="bg-green-500 text-white px-3 py-1 rounded text-xs">Concluir</button>
+                        ` : ''}
+                        ${est !== 'pendente' ? `
+                            <button onclick="atualizarEstado('${item.id}', 'pendente')" class="bg-gray-300 text-black px-3 py-1 rounded text-xs">↩ Repor</button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        render();
+    </script>
+</body>
+</html>
