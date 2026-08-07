@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "node-fetch": "2.6.7",
+    "ical": "0.15.0"
+  }
+}
