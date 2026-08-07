@@ -1,6 +1,5 @@
 {
-  "dependencies": {
-    "node-fetch": "2.6.7",
-    "ical": "0.15.0"
-  }
+  "name": "agenda-limpezas",
+  "version": "1.0.0"
 }
+
