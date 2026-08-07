@@ -22,6 +22,14 @@
         </div>
     </div>
 
+    <!-- Controlo de Filtro Passado -->
+    <div class="flex justify-between items-center mb-3 px-1">
+        <span class="text-xs text-gray-500 font-medium">Limpezas Ativas</span>
+        <label class="text-xs text-blue-600 flex items-center gap-1 cursor-pointer">
+            <input type="checkbox" id="showPast" onchange="render()" class="rounded"> Mostrar Passadas
+        </label>
+    </div>
+
     <!-- Lista de Limpezas -->
     <div id="lista" class="space-y-3">
         <p class="text-center text-gray-500 py-4">A carregar reservas...</p>
@@ -55,15 +63,18 @@
         }
 
         function apagarManual(id) {
-            manuais = manuais.filter(m => m.id !== id);
-            localStorage.setItem('manuais', JSON.stringify(manuais));
-            delete estados[id];
-            localStorage.setItem('estados', JSON.stringify(estados));
-            render();
+            if (confirm('Deseja eliminar esta limpeza manual?')) {
+                manuais = manuais.filter(m => m.id !== id);
+                localStorage.setItem('manuais', JSON.stringify(manuais));
+                delete estados[id];
+                localStorage.setItem('estados', JSON.stringify(estados));
+                render();
+            }
         }
 
         async function render() {
             const lista = document.getElementById('lista');
+            const showPast = document.getElementById('showPast').checked;
             let icalItems = [];
 
             try {
@@ -74,15 +85,46 @@
                 console.error('Erro ao carregar API', e);
             }
 
-            const todos = [...manuais, ...icalItems];
-            todos.sort((a, b) => new Date(a.data) - new Date(b.data));
+            const todosBrutos = [...manuais, ...icalItems];
 
-            if (todos.length === 0) {
-                lista.innerHTML = '<p class="text-center text-gray-500 py-4">Sem limpezas encontradas.</p>';
+            // 1. Deduplicação inteligente (Mesma propriedade + Mesma data)
+            const agrupados = {};
+            todosBrutos.forEach(item => {
+                const chave = `${item.propriedade}_${item.data}`;
+                if (!agrupados[chave]) {
+                    agrupados[chave] = {
+                        id: item.id,
+                        propriedade: item.propriedade,
+                        data: item.data,
+                        origens: [item.origem]
+                    };
+                } else {
+                    if (!agrupados[chave].origens.includes(item.origem)) {
+                        agrupados[chave].origens.push(item.origem);
+                    }
+                }
+            });
+
+            let listaFinal = Object.values(agrupados).map(item => ({
+                ...item,
+                origem: item.origens.join(' / ')
+            }));
+
+            // 2. Ocultar datas passadas (anteriores a hoje) se a checkbox não estiver ativa
+            const hoje = new Date().toISOString().split('T')[0];
+            if (!showPast) {
+                listaFinal = listaFinal.filter(item => item.data >= hoje);
+            }
+
+            // 3. Ordenar por data (mais próximas primeiro)
+            listaFinal.sort((a, b) => new Date(a.data) - new Date(b.data));
+
+            if (listaFinal.length === 0) {
+                lista.innerHTML = '<p class="text-center text-gray-500 py-4">Sem limpezas pendentes.</p>';
                 return;
             }
 
-            lista.innerHTML = todos.map(item => criarCard(item)).join('');
+            lista.innerHTML = listaFinal.map(item => criarCard(item)).join('');
         }
 
         function criarCard(item) {
@@ -99,8 +141,8 @@
                             ${statusBadge}
                             <h3 class="font-bold text-gray-800 text-base mt-1">${item.propriedade}</h3>
                         </div>
-                        ${item.origem === 'Manual' ? `
-                            <button onclick="apagarManual('${item.id}')" class="text-xs text-red-500">Eliminar</button>
+                        ${item.id.startsWith('m_') ? `
+                            <button onclick="apagarManual('${item.id}')" class="text-xs text-red-500 hover:text-red-700 font-medium">Eliminar</button>
                         ` : ''}
                     </div>
                     <p class="text-xs text-gray-500">Data Limpeza: <strong>${item.data}</strong></p>
