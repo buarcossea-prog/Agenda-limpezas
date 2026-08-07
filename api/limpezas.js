@@ -1,6 +1,15 @@
 const FONTES_ICAL = [
+  // Website Directo
   { propriedade: 'Cristal Mar', origem: 'Website Directo', url: 'https://buarcossea.pt/wp-content/uploads/properties-icalendars/icalendar-7912.ics' },
-  { propriedade: 'Tonay Sol', origem: 'Website Directo', url: 'https://buarcossea.pt/wp-content/uploads/properties-icalendars/icalendar-6195.ics' }
+  { propriedade: 'Tonay Sol', origem: 'Website Directo', url: 'https://buarcossea.pt/wp-content/uploads/properties-icalendars/icalendar-6195.ics' },
+
+  // Tonay Sol
+  { propriedade: 'Tonay Sol', origem: 'Booking', url: 'https://ical.booking.com/v1/export?t=8436e99b-992c-4976-b865-0f01ae147afd' },
+  { propriedade: 'Tonay Sol', origem: 'Airbnb', url: 'https://www.airbnb.com/calendar/ical/913697094754040454.ics?t=4fcdaae84b2740699596375f71e0b5e2&locale=pt-PT' },
+
+  // Cristal Mar
+  { propriedade: 'Cristal Mar', origem: 'Booking', url: 'https://ical.booking.com/v1/export?t=8cc3f71c-c7b6-4cb7-b647-abdac1c6d1db' },
+  { propriedade: 'Cristal Mar', origem: 'Airbnb', url: 'https://www.airbnb.com/calendar/ical/1357310302657236052.ics?t=dee07350f32b440c84ea7a435852ce1a&locale=pt-PT' }
 ];
 
 export default async function handler(req, res) {
@@ -14,13 +23,13 @@ export default async function handler(req, res) {
         const response = await fetch(fonte.url);
         const text = await response.text();
 
-        // Extrai os blocos de eventos do ficheiro iCal
+        // Extrai os blocos de eventos do iCal
         const vevents = text.split('BEGIN:VEVENT');
 
         for (let i = 1; i < vevents.length; i++) {
           const block = vevents[i].split('END:VEVENT')[0];
           
-          // Procura a data de Checkout (DTEND) e o resumo da reserva
+          // Captura a data de Fim/Checkout (DTEND) e o Resumo
           const dtendMatch = block.match(/DTEND(?:;VALUE=DATE)?:?([0-9T]+)/);
           const summaryMatch = block.match(/SUMMARY:(.*)/);
 
@@ -34,7 +43,7 @@ export default async function handler(req, res) {
 
             if (dataFormatted) {
               limpezas.push({
-                id: `ical_${fonte.propriedade}_${rawDate}_${i}`,
+                id: `ical_${fonte.propriedade}_${fonte.origem}_${rawDate}_${i}`,
                 propriedade: fonte.propriedade,
                 origem: fonte.origem,
                 data: dataFormatted,
@@ -44,7 +53,7 @@ export default async function handler(req, res) {
           }
         }
       } catch (errFonte) {
-        console.error(`Erro ao ler iCal de ${fonte.propriedade}:`, errFonte);
+        console.error(`Erro ao ler iCal de ${fonte.propriedade} (${fonte.origem}):`, errFonte);
       }
     }
 
