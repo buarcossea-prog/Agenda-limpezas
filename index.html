@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt">
 <head>
@@ -6,36 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agenda de Limpezas</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Biblioteca profissional para processar iCals de forma 100% fiável -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ical.js/1.5.0/ical.min.js"></script>
 </head>
-<body class="bg-gray-100 p-4 max-w-md mx-auto">
-    <h1 class="text-xl font-bold mb-4">Agenda de Limpezas</h1>
+<body class="bg-gray-100 p-4 max-w-md mx-auto font-sans">
+    <h1 class="text-xl font-bold mb-4 text-gray-800">Agenda de Limpezas</h1>
 
-    <!-- Formulário Manual -->
-    <div class="bg-white p-3 rounded-lg shadow mb-4">
-        <h2 class="text-sm font-semibold mb-2">Adicionar Limpeza Manual</h2>
+    <!-- Formulario para Limpeza Manual -->
+    <div class="bg-white p-4 rounded-lg shadow mb-4">
+        <h2 class="text-sm font-semibold mb-2 text-gray-700">+ Adicionar Limpeza Manual</h2>
         <div class="flex flex-col gap-2">
-            <input type="text" id="propName" placeholder="Propriedade" class="border p-2 rounded text-sm">
+            <input type="text" id="propName" placeholder="Propriedade (ex: Cristal Mar)" class="border p-2 rounded text-sm">
             <input type="date" id="dateInput" class="border p-2 rounded text-sm">
-            <button onclick="adicionarManual()" class="bg-blue-600 text-white py-2 rounded text-sm">Adicionar</button>
+            <button onclick="adicionarManual()" class="bg-blue-600 text-white py-2 rounded text-sm font-medium hover:bg-blue-700">Adicionar Limpeza</button>
         </div>
     </div>
 
+    <!-- Lista de Reservas e Limpezas -->
     <div id="lista" class="space-y-3">
-        <p class="text-center">A carregar reservas...</p>
+        <p class="text-center text-gray-500 py-4">A carregar reservas...</p>
     </div>
 
     <script>
-        // Links dos teus iCals
-        const urls = [
-            'https://buarcossea.pt/wp-content/uploads/properties-icalendars/icalendar-7912.ics', // Cristal Mar
-            'https://buarcossea.pt/wp-content/uploads/properties-icalendars/icalendar-6195.ics'  // Tonay Sol
+        // Lista de Feeds iCal (Teu site + Adiciona aqui os da Booking / Airbnb)
+        const fontes = [
+            { propriedade: 'Cristal Mar', origem: 'Website Directo', url: 'https://buarcossea.pt/wp-content/uploads/properties-icalendars/icalendar-7912.ics' },
+            { propriedade: 'Tonay Sol', origem: 'Website Directo', url: 'https://buarcossea.pt/wp-content/uploads/properties-icalendars/icalendar-6195.ics' }
+            // Para adicionar Airbnb/Booking basta colar aqui outra linha como esta:
+            // { propriedade: 'Cristal Mar', origem: 'Booking', url: 'LINK_BOOKING_AQUI' }
         ];
 
         let estados = JSON.parse(localStorage.getItem('estados') || '{}');
         let manuais = JSON.parse(localStorage.getItem('manuais') || '[]');
 
         function atualizarEstado(id, estado) {
-            if(estado === 'pendente') delete estados[id];
+            if (estado === 'pendente') delete estados[id];
             else estados[id] = estado;
             localStorage.setItem('estados', JSON.stringify(estados));
             render();
@@ -44,59 +48,121 @@
         function adicionarManual() {
             const prop = document.getElementById('propName').value;
             const data = document.getElementById('dateInput').value;
-            if(!prop || !data) return alert('Preenche tudo');
-            manuais.push({id: 'm_' + Date.now(), propriedade: prop, data: data, origem: 'Manual'});
+            if (!prop || !data) return alert('Por favor, preencha a propriedade e a data.');
+            
+            manuais.push({
+                id: 'm_' + Date.now(),
+                propriedade: prop,
+                data: data,
+                origem: 'Manual'
+            });
             localStorage.setItem('manuais', JSON.stringify(manuais));
+            document.getElementById('propName').value = '';
+            document.getElementById('dateInput').value = '';
             render();
+        }
+
+        function apagarManual(id) {
+            manuais = manuais.filter(m => m.id !== id);
+            localStorage.setItem('manuais', JSON.stringify(manuais));
+            delete estados[id];
+            localStorage.setItem('estados', JSON.stringify(estados));
+            render();
+        }
+
+        async function carregarICals() {
+            let resultado = [];
+            for (let fonte of fontes) {
+                try {
+                    // Utiliza proxy para ultrapassar restrições de CORS no browser
+                    const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(fonte.url));
+                    const text = await res.text();
+                    
+                    const jcalData = ICAL.parse(text);
+                    const comp = new ICAL.Component(jcalData);
+                    const vevents = comp.getAllSubcomponents('vevent');
+
+                    vevents.forEach(event => {
+                        const ev = new ICAL.Event(event);
+                        // A data do Checkout (fim da reserva) é o momento da limpeza
+                        const dataCheckout = ev.endDate.toJSDate().toISOString().split('T')[0];
+                        resultado.push({
+                            id: 'ical_' + (ev.uid || dataCheckout + '_' + fonte.propriedade),
+                            propriedade: fonte.propriedade,
+                            data: dataCheckout,
+                            origem: fonte.origem,
+                            resumo: ev.summary || 'Reserva'
+                        });
+                    });
+                } catch (e) {
+                    console.error('Erro ao carregar iCal de ' + fonte.propriedade, e);
+                }
+            }
+            return resultado;
         }
 
         async function render() {
             const lista = document.getElementById('lista');
-            lista.innerHTML = 'A carregar...';
-            
-            // Simulação de carregamento (em app estática, o fetch direto de iCal pode dar erro de CORS)
-            // Se o fetch falhar, mostra as manuais
-            let html = manuais.map(m => criarCard(m)).join('');
-            
-            // Tenta carregar iCals (usando um proxy público para evitar bloqueios)
-            for(let url of urls) {
-                try {
-                    const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(url));
-                    const text = await res.text();
-                    // Parsing muito simples de iCal
-                    const lines = text.split('\n');
-                    let current = {};
-                    lines.forEach(line => {
-                        if(line.includes('SUMMARY:')) current.propriedade = line.split(':')[1];
-                        if(line.includes('DTSTART:')) current.data = line.split(':')[1].substring(0,8);
-                    });
-                    if(current.propriedade) html += criarCard({id: 'ical_'+current.data, ...current, origem: 'iCal'});
-                } catch(e) { console.log('Erro iCal'); }
+            lista.innerHTML = '<p class="text-center text-gray-500 py-4">A carregar reservas dos iCals...</p>';
+
+            const icalItems = await carregarICals();
+            const todos = [...manuais, ...icalItems];
+
+            // Ordena as limpezas por data (mais recentes/próximas primeiro)
+            todos.sort((a, b) => new Date(a.data) - new Date(b.data));
+
+            if (todos.length === 0) {
+                lista.innerHTML = '<p class="text-center text-gray-500 py-4">Sem limpezas encontradas.</p>';
+                return;
             }
-            lista.innerHTML = html || '<p>Sem reservas.</p>';
+
+            lista.innerHTML = todos.map(item => criarCard(item)).join('');
         }
 
         function criarCard(item) {
             const est = estados[item.id] || 'pendente';
+
+            let statusBadge = '<span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded font-medium">Pendente</span>';
+            if (est === 'iniciada') statusBadge = '<span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-medium">Em Progresso</span>';
+            if (est === 'concluida') statusBadge = '<span class="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded font-medium">Concluída</span>';
+
             return `
-                <div class="bg-white p-4 rounded shadow border">
-                    <h3 class="font-bold">${item.propriedade}</h3>
-                    <p class="text-xs text-gray-500">${item.data} - ${item.origem}</p>
-                    <div class="mt-3 flex gap-2">
+                <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
+                    <div class="flex justify-between items-start mb-1">
+                        <div>
+                            ${statusBadge}
+                            <h3 class="font-bold text-gray-800 text-base mt-1">${item.propriedade}</h3>
+                        </div>
+                        ${item.origem === 'Manual' ? `
+                            <button onclick="apagarManual('${item.id}')" class="text-xs text-red-500 hover:text-red-700">Eliminar</button>
+                        ` : ''}
+                    </div>
+                    <p class="text-xs text-gray-500">Data Limpeza: <strong>${item.data}</strong></p>
+                    <p class="text-xs text-gray-400">Origem: ${item.origem}</p>
+
+                    <!-- Botões de Ação -->
+                    <div class="mt-3 flex gap-2 pt-2 border-t border-gray-100">
                         ${est === 'pendente' ? `
-                            <button onclick="atualizarEstado('${item.id}', 'iniciada')" class="bg-blue-500 text-white px-3 py-1 rounded text-xs">Iniciar</button>
-                            <button onclick="atualizarEstado('${item.id}', 'concluida')" class="bg-green-500 text-white px-3 py-1 rounded text-xs">Concluir</button>
+                            <button onclick="atualizarEstado('${item.id}', 'iniciada')" class="flex-1 bg-blue-600 text-white py-1.5 rounded text-xs font-medium">Iniciar</button>
+                            <button onclick="atualizarEstado('${item.id}', 'concluida')" class="flex-1 bg-emerald-600 text-white py-1.5 rounded text-xs font-medium">Concluir</button>
                         ` : ''}
+
                         ${est === 'iniciada' ? `
-                            <button onclick="atualizarEstado('${item.id}', 'concluida')" class="bg-green-500 text-white px-3 py-1 rounded text-xs">Concluir</button>
+                            <button onclick="atualizarEstado('${item.id}', 'concluida')" class="flex-1 bg-emerald-600 text-white py-1.5 rounded text-xs font-medium">Concluir</button>
+                            <button onclick="atualizarEstado('${item.id}', 'pendente')" class="bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-xs font-medium">↩ Repor</button>
                         ` : ''}
-                        ${est !== 'pendente' ? `
-                            <button onclick="atualizarEstado('${item.id}', 'pendente')" class="bg-gray-300 text-black px-3 py-1 rounded text-xs">↩ Repor</button>
+
+                        ${est === 'concluida' ? `
+                            <button onclick="atualizarEstado('${item.id}', 'pendente')" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-1.5 rounded text-xs font-medium flex items-center justify-center gap-1">
+                                <span>↩</span> Repor para Pendente (Engano)
+                            </button>
                         ` : ''}
                     </div>
                 </div>
             `;
         }
+
+        // Executa ao carregar a página
         render();
     </script>
 </body>
