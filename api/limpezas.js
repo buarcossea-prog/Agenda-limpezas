@@ -17,6 +17,7 @@ const FONTES_ICAL = [
 ];
 
 export default async function handler(req, res) {
+  // Guardar alterações de estado (POST)
   if (req.method === 'POST') {
     try {
       const { id, estado } = req.body;
@@ -37,6 +38,7 @@ export default async function handler(req, res) {
     }
   }
 
+  // Carregar dados e iCals (GET)
   try {
     let limpezas = [];
 
@@ -51,20 +53,26 @@ export default async function handler(req, res) {
 
         for (let i = 1; i < vevents.length; i++) {
           const block = vevents[i].split('END:VEVENT')[0];
-          const dtendMatch = block.match(/DTEND;VALUE=DATE:(\d{8})/);
+          const dtendMatch = block.match(/DTEND(?:;VALUE=DATE)?:?([0-9T]+)/);
           const summaryMatch = block.match(/SUMMARY:(.*)/);
 
-          if (dtendMatch) {
+          if (dtendMatch && dtendMatch[1]) {
             const rawDate = dtendMatch[1];
-            const dataFormatted = `${rawDate.substring(0, 4)}-${rawDate.substring(4, 6)}-${rawDate.substring(6, 8)}`;
+            
+            let dataFormatted = '';
+            if (rawDate.length >= 8) {
+              dataFormatted = `${rawDate.substring(0, 4)}-${rawDate.substring(4, 6)}-${rawDate.substring(6, 8)}`;
+            }
 
-            limpezas.push({
-              id: `ical_${fonte.propriedade}_${fonte.origem}_${rawDate}_${i}`,
-              propriedade: fonte.propriedade,
-              origem: fonte.origem,
-              data: dataFormatted,
-              resumo: summaryMatch ? summaryMatch[1].trim() : 'Reserva'
-            });
+            if (dataFormatted) {
+              limpezas.push({
+                id: `ical_${fonte.propriedade}_${fonte.origem}_${rawDate}_${i}`,
+                propriedade: fonte.propriedade,
+                origem: fonte.origem,
+                data: dataFormatted,
+                resumo: summaryMatch ? summaryMatch[1].trim() : 'Reserva'
+              });
+            }
           }
         }
       } catch (errFonte) {
