@@ -20,16 +20,10 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const { id, estado } = req.body;
-
-      if (estado === 'reset') {
-        await redis.set('estados_limpezas', {});
-        return res.status(200).json({ success: true, estados: {} });
-      }
-
       if (!id) return res.status(400).json({ error: 'ID em falta' });
 
       let estados = (await redis.get('estados_limpezas')) || {};
-
+      
       if (estado === 'pendente') {
         delete estados[id];
       } else {
@@ -57,12 +51,10 @@ export default async function handler(req, res) {
 
         for (let i = 1; i < vevents.length; i++) {
           const block = vevents[i].split('END:VEVENT')[0];
-          
-          // Procura por DTEND em qualquer formato e extrai os 8 dígitos da data (YYYYMMDD)
-          const dtendMatch = block.match(/DTEND[^:\n]*:([0-9]{8})/i);
+          const dtendMatch = block.match(/DTEND;VALUE=DATE:(\d{8})/);
           const summaryMatch = block.match(/SUMMARY:(.*)/);
 
-          if (dtendMatch && dtendMatch[1]) {
+          if (dtendMatch) {
             const rawDate = dtendMatch[1];
             const dataFormatted = `${rawDate.substring(0, 4)}-${rawDate.substring(4, 6)}-${rawDate.substring(6, 8)}`;
 
@@ -76,7 +68,7 @@ export default async function handler(req, res) {
           }
         }
       } catch (errFonte) {
-        console.error(`Erro iCal ${fonte.propriedade}:`, errFonte);
+        console.error(`Erro ao ler iCal de ${fonte.propriedade} (${fonte.origem}):`, errFonte);
       }
     }
 
