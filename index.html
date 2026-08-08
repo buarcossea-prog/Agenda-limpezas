@@ -9,7 +9,10 @@
 <body class="bg-gray-100 p-4 max-w-md mx-auto font-sans">
     <div class="flex justify-between items-center mb-4">
         <h1 class="text-xl font-bold text-gray-800">Agenda de Limpezas</h1>
-        <button onclick="render()" class="text-xs bg-gray-200 px-2 py-1 rounded text-gray-600">🔄 Atualizar</button>
+        <div class="flex gap-1">
+            <button onclick="limparBD()" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded font-medium">🧹 Limpar BD</button>
+            <button onclick="render()" class="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">🔄 Atualizar</button>
+        </div>
     </div>
 
     <!-- Formulario Limpeza Manual -->
@@ -43,7 +46,6 @@
         let manuais = JSON.parse(localStorage.getItem('manuais') || '[]');
 
         async function atualizarEstado(id, estado) {
-            // Atualização otimista no ecran
             estados[id] = estado;
             renderLista();
 
@@ -55,6 +57,22 @@
                 });
             } catch (e) {
                 console.error('Erro ao guardar estado:', e);
+            }
+        }
+
+        async function limparBD() {
+            if (confirm('Isto vai repor todas as limpezas para o estado Pendente na base de dados. Continuar?')) {
+                try {
+                    await fetch('/api/limpezas', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: 'RESET_ALL', estado: 'reset' })
+                    });
+                    estados = {};
+                    render();
+                } catch (e) {
+                    alert('Erro ao limpar a base de dados');
+                }
             }
         }
 
@@ -86,7 +104,6 @@
 
         async function render() {
             const lista = document.getElementById('lista');
-            lista.innerHTML = '<p class="text-center text-gray-500 py-4">A carregar dados atualizados...</p>';
             
             let icalItems = [];
 
@@ -103,7 +120,7 @@
 
             const todosBrutos = [...manuais, ...icalItems];
 
-            // 1. Deduplicação inteligente
+            // Deduplicação inteligente
             const agrupados = {};
             todosBrutos.forEach(item => {
                 const chave = `${item.propriedade}_${item.data}`;
@@ -135,13 +152,11 @@
             
             let filtrados = [...listaFinalGlob];
 
-            // Filter passadas
             const hoje = new Date().toISOString().split('T')[0];
             if (!showPast) {
                 filtrados = filtrados.filter(item => item.data >= hoje);
             }
 
-            // Order por data
             filtrados.sort((a, b) => new Date(a.data) - new Date(b.data));
 
             if (filtrados.length === 0) {
