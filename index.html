@@ -9,10 +9,7 @@
 <body class="bg-gray-100 p-4 max-w-md mx-auto font-sans">
     <div class="flex justify-between items-center mb-4">
         <h1 class="text-xl font-bold text-gray-800">Agenda de Limpezas</h1>
-        <div class="flex gap-1">
-            <button onclick="limparBD()" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded font-medium">🧹 Limpar BD</button>
-            <button onclick="render()" class="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">🔄 Atualizar</button>
-        </div>
+        <button onclick="render()" class="text-xs bg-gray-200 text-gray-700 px-3 py-1.5 rounded font-medium">🔄 Atualizar</button>
     </div>
 
     <!-- Formulario Limpeza Manual -->
@@ -31,7 +28,7 @@
     <!-- Controlo de Filtro Passado -->
     <div class="flex justify-between items-center mb-3 px-1">
         <span class="text-xs text-gray-500 font-medium">Limpezas Ativas</span>
-        <label class="text-xs text-blue-600 flex items-center gap-1 cursor-pointer">
+        <label class="text-xs text-blue-600 flex items-center gap-1 cursor-pointer font-medium">
             <input type="checkbox" id="showPast" onchange="render()" class="rounded"> Mostrar Passadas
         </label>
     </div>
@@ -57,22 +54,6 @@
                 });
             } catch (e) {
                 console.error('Erro ao guardar estado:', e);
-            }
-        }
-
-        async function limparBD() {
-            if (confirm('Isto vai repor todas as limpezas para o estado Pendente na base de dados. Continuar?')) {
-                try {
-                    await fetch('/api/limpezas', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: 'RESET_ALL', estado: 'reset' })
-                    });
-                    estados = {};
-                    render();
-                } catch (e) {
-                    alert('Erro ao limpar a base de dados');
-                }
             }
         }
 
@@ -103,8 +84,6 @@
         let listaFinalGlob = [];
 
         async function render() {
-            const lista = document.getElementById('lista');
-            
             let icalItems = [];
 
             try {
@@ -120,7 +99,7 @@
 
             const todosBrutos = [...manuais, ...icalItems];
 
-            // Deduplicação inteligente
+            // Deduplicação inteligente por propriedade e data
             const agrupados = {};
             todosBrutos.forEach(item => {
                 const chave = `${item.propriedade}_${item.data}`;
@@ -185,7 +164,7 @@
                             <button onclick="apagarManual('${item.id}')" class="text-xs text-red-500 hover:text-red-700 font-medium">Eliminar</button>
                         ` : ''}
                     </div>
-                    <p class="text-xs text-gray-500">Data Limpeza: <strong>${item.data}</strong></p>
+                    <p class="text-xs text-gray-500 mt-1">Data Limpeza: <strong>${item.data}</strong></p>
                     <p class="text-xs text-gray-400">Origem: ${item.origem}</p>
 
                     <div class="mt-3 flex gap-2 pt-2 border-t border-gray-100">
@@ -201,7 +180,7 @@
 
                         ${est === 'concluida' ? `
                             <button onclick="atualizarEstado('${item.id}', 'pendente')" class="w-full bg-gray-200 text-gray-700 py-1.5 rounded text-xs font-medium flex items-center justify-center gap-1">
-                                <span>↩</span> Repor para Pendente (Engano)
+                                <span>↩</span> Repor para Pendente
                             </button>
                         ` : ''}
                     </div>
