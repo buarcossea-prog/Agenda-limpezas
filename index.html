@@ -99,7 +99,7 @@
 
             const todosBrutos = [...manuais, ...icalItems];
 
-            // Deduplicação inteligente por propriedade e data
+            // Deduplicação inteligente
             const agrupados = {};
             todosBrutos.forEach(item => {
                 const chave = `${item.propriedade}_${item.data}`;
