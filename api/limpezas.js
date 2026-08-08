@@ -1,4 +1,4 @@
-  if (req.method === 'POST') {
+    if (req.method === 'POST') {
     try {
       const { id, estado } = req.body;
       
