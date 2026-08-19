@@ -8,7 +8,7 @@ const FONTES_ICAL = [
   { propriedade: 'Tonay Sol', origem: 'Website Directo', url: 'https://buarcossea.pt/wp-content/uploads/properties-icalendars/icalendar-6195.ics' },
 
   // Tonay Sol
-  { propriedade: 'Tonay Sol', origem: 'Booking', url: 'https://ical.booking.com/v1/export?t=8436e99b-992c-4976-b865-0f01ae147afd' },
+  { propriedade: 'Tonay Sol', origem: 'Booking', url: 'https://ical.booking.com/v1/export?t=702770d5-ae2e-4c74-b5bc-80f50f8432be' },
   { propriedade: 'Tonay Sol', origem: 'Airbnb', url: 'https://www.airbnb.com/calendar/ical/913697094754040454.ics?t=4fcdaae84b2740699596375f71e0b5e2&locale=pt-PT' },
 
   // Cristal Mar
