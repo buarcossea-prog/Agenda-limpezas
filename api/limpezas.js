@@ -64,7 +64,7 @@ export default async function handler(req, res) {
 
       await redis.set('estados_limpezas', estados);
 
-      // Dispara a notificação para o Telegram
+      // Aguarda o envio do Telegram antes de finalizar a resposta
       await notificarTelegram(id, estado);
 
       return res.status(200).json({ success: true, estados });
