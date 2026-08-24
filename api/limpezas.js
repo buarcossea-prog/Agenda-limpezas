@@ -2,6 +2,38 @@ import { Redis } from '@upstash/redis';
 
 const redis = Redis.fromEnv();
 
+// Função para enviar notificação para o WhatsApp via CallMeBot
+async function notificarWhatsApp(id, estado) {
+  const phone = process.env.CALLMEBOT_PHONE;
+  const apiKey = process.env.CALLMEBOT_API_KEY;
+
+  if (!phone || !apiKey) return;
+
+  // Descobre a propriedade a partir do ID do iCal (ex: "ical_Cristal Mar_Booking_...")
+  let propriedade = 'Propriedade';
+  if (id.includes('Cristal Mar')) {
+    propriedade = 'Cristal Mar';
+  } else if (id.includes('Tonay Sol')) {
+    propriedade = 'Tonay Sol';
+  }
+
+  let textoMensagem = '';
+  if (estado === 'iniciado') {
+    textoMensagem = `⏳ *Limpeza Iniciada!*\n🏠 Propriedade: *${propriedade}*\nA equipa começou o serviço.`;
+  } else if (estado === 'concluido' || estado === 'concluida') {
+    textoMensagem = `✅ *Limpeza Concluída!*\n🏠 Propriedade: *${propriedade}*\nO apartamento já está pronto!`;
+  }
+
+  // Se o estado não for "iniciado" nem "concluido" (ex: "pendente"), não envia mensagem
+  if (!textoMensagem) return;
+
+  try {
+    await fetch(`https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${encodeURIComponent(textoMensagem)}&apikey=${apiKey}`);
+  } catch (err) {
+    console.error("Erro ao enviar mensagem para o WhatsApp:", err);
+  }
+}
+
 const FONTES_ICAL = [
   // Website Directo
   { propriedade: 'Cristal Mar', origem: 'Website Directo', url: 'https://buarcossea.pt/wp-content/uploads/properties-icalendars/icalendar-7912.ics' },
@@ -32,6 +64,10 @@ export default async function handler(req, res) {
       }
 
       await redis.set('estados_limpezas', estados);
+
+      // Dispara a notificação para o WhatsApp de forma assíncrona
+      notificarWhatsApp(id, estado);
+
       return res.status(200).json({ success: true, estados });
     } catch (e) {
       return res.status(500).json({ success: false, error: e.message });
