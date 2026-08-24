@@ -17,10 +17,12 @@ async function notificarTelegram(id, estado) {
     propriedade = 'Tonay Sol';
   }
 
+  const estadoNorm = (estado || '').toLowerCase();
   let textoMensagem = '';
-  if (estado === 'iniciado') {
+
+  if (estadoNorm === 'iniciado' || estadoNorm === 'iniciada' || estadoNorm === 'em_andamento') {
     textoMensagem = `⏳ *Limpeza Iniciada!*\n🏠 Propriedade: *${propriedade}*\nA equipa começou o serviço.`;
-  } else if (estado === 'concluido' || estado === 'concluida') {
+  } else if (estadoNorm === 'concluido' || estadoNorm === 'concluida') {
     textoMensagem = `✅ *Limpeza Concluída!*\n🏠 Propriedade: *${propriedade}*\nO apartamento já está pronto!`;
   }
 
@@ -64,7 +66,7 @@ export default async function handler(req, res) {
 
       await redis.set('estados_limpezas', estados);
 
-      // Aguarda o envio do Telegram antes de finalizar a resposta
+      // Dispara a notificação para o Telegram
       await notificarTelegram(id, estado);
 
       return res.status(200).json({ success: true, estados });
