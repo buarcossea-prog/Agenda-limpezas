@@ -45,7 +45,7 @@ const FONTES_ICAL = [
   { propriedade: 'Tonay Sol', origem: 'Airbnb', url: 'https://www.airbnb.com/calendar/ical/913697094754040454.ics?t=4fcdaae84b2740699596375f71e0b5e2&locale=pt-PT' },
 
   // Cristal Mar
-  { propriedade: 'Cristal Mar', origem: 'Booking', url: 'https://ical.booking.com/v1/export?t=8cc3f71c-c7b6-4cb7-b647-abdac1c6d1db' },
+  { propriedade: 'Cristal Mar', origem: 'Booking', url: 'https://ical.booking.com/v1/export?t=2e0c6dac-cc34-488b-bb27-889b1bed19b2' },
   { propriedade: 'Cristal Mar', origem: 'Airbnb', url: 'https://www.airbnb.com/calendar/ical/1357310302657236052.ics?t=dee07350f32b440c84ea7a435852ce1a&locale=pt-PT' }
 ];
 
