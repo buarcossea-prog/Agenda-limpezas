@@ -35,6 +35,15 @@ async function notificarTelegram(id, estado) {
   }
 }
 
+// Converte string iCal (ex: "20260910" ou "20260910T150000Z") em objeto Date
+function parseIcalDate(str) {
+  if (!str || str.length < 8) return null;
+  const y = parseInt(str.substring(0, 4), 10);
+  const m = parseInt(str.substring(4, 6), 10) - 1;
+  const d = parseInt(str.substring(6, 8), 10);
+  return new Date(Date.UTC(y, m, d));
+}
+
 const FONTES_ICAL = [
   // Website Directo
   { propriedade: 'Cristal Mar', origem: 'Website Directo', url: 'https://buarcossea.pt/wp-content/uploads/properties-icalendars/icalendar-7912.ics' },
@@ -90,23 +99,41 @@ export default async function handler(req, res) {
 
         for (let i = 1; i < vevents.length; i++) {
           const block = vevents[i].split('END:VEVENT')[0];
+          
+          const dtstartMatch = block.match(/DTSTART(?:;VALUE=DATE)?:?([0-9T]+)/);
           const dtendMatch = block.match(/DTEND(?:;VALUE=DATE)?:?([0-9T]+)/);
           const summaryMatch = block.match(/SUMMARY:(.*)/);
 
           if (dtendMatch && dtendMatch[1]) {
-            const rawDate = dtendMatch[1];
-            
-            let dataFormatted = '';
-            if (rawDate.length >= 8) {
-              dataFormatted = `${rawDate.substring(0, 4)}-${rawDate.substring(4, 6)}-${rawDate.substring(6, 8)}`;
+            const rawEnd = dtendMatch[1];
+            const rawStart = dtstartMatch ? dtstartMatch[1] : null;
+
+            const dateEnd = parseIcalDate(rawEnd);
+            const dateStart = parseIcalDate(rawStart);
+
+            // Formata a data de check-out (dia da limpeza)
+            const dataFormatted = dateEnd ? dateEnd.toISOString().split('T')[0] : '';
+            const checkinFormatted = dateStart ? dateStart.toISOString().split('T')[0] : '';
+
+            // Calcula o número de noites da reserva
+            let noites = 0;
+            if (dateStart && dateEnd) {
+              const diffTime = dateEnd.getTime() - dateStart.getTime();
+              noites = Math.round(diffTime / (1000 * 60 * 60 * 24));
             }
 
             if (dataFormatted) {
+              // Gera o link dinâmico com o número de noites/dias
+              const link = `https://${req.headers.host || 'buarcossea.pt'}/reserva?propriedade=${encodeURIComponent(fonte.propriedade)}&dias=${noites}&checkin=${checkinFormatted}&checkout=${dataFormatted}`;
+
               limpezas.push({
-                id: `ical_${fonte.propriedade}_${fonte.origem}_${rawDate}_${i}`,
+                id: `ical_${fonte.propriedade}_${fonte.origem}_${rawEnd}_${i}`,
                 propriedade: fonte.propriedade,
                 origem: fonte.origem,
-                data: dataFormatted,
+                data: dataFormatted,        // Check-out (dia da limpeza)
+                checkin: checkinFormatted,  // Check-in
+                noites: noites,            // Duração da reserva
+                link: link,                // Link gerado com parâmetro de dias
                 resumo: summaryMatch ? summaryMatch[1].trim() : 'Reserva'
               });
             }
